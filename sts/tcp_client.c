@@ -40,7 +40,7 @@ setup_tcp_communication(){
     struct hostent *host = (struct hostent *)gethostbyname(SERVER_IP_ADDRESS);
     dest.sin_addr = *((struct in_addr *)host->h_addr);
 
-    /*Step 3 : Create a UDP socket*/
+    /*Step 3 : Create a TCP socket*/
     /*Create a socket finally. socket() is a system call, which asks for three paramemeters*/
     sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 

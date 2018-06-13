@@ -5,14 +5,155 @@
 #include <netdb.h>
 #include <memory.h>
 #include <errno.h>
-#include "common.h"
 
 /*Server process is running on this port no. Client has to send data to this port no*/
-#define SERVER_PORT     2000 
+#define SERVER_PORT     2000
 
-test_struct_t test_struct;
-result_struct_t res_struct;
 char data_buffer[1024];
+
+
+/*string helping functions*/
+
+/*Remove the space from both sides of the string*/
+void
+string_space_trim(char *string){
+
+    if(!string)
+        return;
+
+    char* ptr = string;
+    int len = strlen(ptr);
+
+    if(!len){
+        return;
+    }
+
+    if(!isspace(ptr[0]) && !isspace(ptr[len-1])){
+        return;
+    }
+
+    while(len-1 > 0 && isspace(ptr[len-1])){
+        ptr[--len] = 0;
+    }
+
+    while(*ptr && isspace(*ptr)){
+        ++ptr, --len;
+    }
+
+    memmove(string, ptr, len + 1);
+}
+
+typedef struct student_{
+
+    char name[32];
+    unsigned int roll_no;
+    char hobby[32];
+    char dept[32];
+} student_t; 
+
+student_t student[5] = {
+    {"Abhishek", 10305042, "Programming", "CSE"},
+    {"Nitin", 10305048, "Programming", "CSE"},
+    {"Avinash", 10305041, "Cricket", "ECE"},
+    {"Jack", 10305032, "Udemy Teaching", "Mechanical"},
+    {"Cris", 10305030, "Programming", "Electrical"}};
+
+
+static char *
+process_GET_request(char *URL, unsigned int *response_len){
+
+    printf("%s(%u) called with URL = %s\n", __FUNCTION__, __LINE__, URL);
+    
+    /*Let us extract the roll no of a students from URL using 
+     * string handling 
+     *URL : /College/IIT/?dept=CSE&rollno=10305042/
+     * */
+    char delimeter[2] = {'?', '\0'};
+
+    string_space_trim(URL);
+    char *token[5] = {0};
+
+    token[0] = strtok(URL, delimeter);
+    token[1] = strtok(0, delimeter);
+    /*token[1] = dept=CSE&rollno=10305042*/
+    delimeter[0] = '&';
+
+    token[2] = strtok(token[1], delimeter);
+    token[3] = strtok(0, delimeter);
+    /*token[2] = dept=CSE, token[3] = rollno=10305042*/
+
+    printf("token[0] = %s, token[1] = %s, token[2] = %s, token[3] = %s\n",
+        token[0] , token[1], token[2], token[3]);
+
+    delimeter[0] = '=';
+    char *roll_no_str = strtok(token[3], delimeter);
+    char *roll_no_value = strtok(0, delimeter);
+    printf("roll_no_value = %s\n", roll_no_value);
+    unsigned int roll_no = atoi(roll_no_value), i = 0;
+
+    for(i = 0; i < 5; i++){
+        if(student[i].roll_no != roll_no){
+            continue;
+        }
+        break;
+    }
+    
+    if(i == 5)
+        return NULL;
+    
+    /*We have got the students of interest here*/
+    char *response = calloc(1, 1024);
+
+    strcpy(response,
+        "<html>"
+        "<head>"
+            "<title>HTML Response</title>"
+            "<style>"
+            "table, th, td {"
+                "border: 1px solid black;}"
+             "</style>"
+        "</head>"
+        "<body>"
+        "<table>"
+        "<tr>"
+        "<td>");
+
+        strcat(response , 
+            student[i].name
+        );
+
+        strcat(response ,
+            "</td></tr>");
+        strcat(response , 
+                "</table>"
+                "</body>"
+                "</html>");
+
+    unsigned int content_len_str = strlen(response);
+
+    /*create HTML hdr returned by server*/
+    char *header  = calloc(1, 248 + content_len_str);
+    strcpy(header, "HTTP/1.1 200 OK\n");      
+    strcat(header, "Server: My Personal HTTP Server\n"    );
+    strcat(header, "Content-Length: "  ); 
+    strcat(header, "Connection: close\n"   );
+    //strcat(header, itoa(content_len_str)); 
+    strcat(header, "2048");
+    strcat(header, "\n");
+    strcat(header, "Content-Type: text/html; charset=UTF-8\n");
+    strcat(header, "\n");
+    strcat(header, response);
+    content_len_str = strlen(header); 
+    *response_len = content_len_str;
+    free(response);
+    return header;
+}
+
+static char *
+process_POST_request(char *URL, unsigned int *response_len){
+
+    return NULL;
+}
 
 void
 setup_tcp_server_communication(){
@@ -41,10 +182,16 @@ setup_tcp_server_communication(){
         printf("socket creation failed\n");
         exit(1);
     }
+    
+    //set master socket to allow multiple connections
+    if (setsockopt(master_sock_tcp_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt))<0){
+        printf("TCP socket creation failed for multiple connections\n");
+        exit(EXIT_FAILURE);
+    }
 
     /*Step 3: specify server Information*/
     server_addr.sin_family = AF_INET;/*This socket will process only ipv4 network packets*/
-    server_addr.sin_port = SERVER_PORT;/*Server will process any data arriving on port no 2000*/
+    server_addr.sin_port = htons(SERVER_PORT);/*Server will process any data arriving on port no 2000*/
     
     /*3232249957; //( = 192.168.56.101); Server's IP address, 
     //means, Linux will send all data whose destination address = address of any local interface 
@@ -102,7 +249,6 @@ setup_tcp_server_communication(){
             /* state Machine state 2*/
             comm_socket_fd = accept(master_sock_tcp_fd, (struct sockaddr *)&client_addr, &addr_len);
             if(comm_socket_fd < 0){
-
                 /* if accept failed to return a socket descriptor, display error and exit */
                 printf("accept error : errno = %d\n", errno);
                 exit(0);
@@ -137,27 +283,46 @@ setup_tcp_server_communication(){
 
                 }
 
-                test_struct_t *client_data = (test_struct_t *)data_buffer;
+                /*BEGIN : Implement the HTTP request processing functionality*/
                 
-                /* If the client sends a special msg to server, then server close the client connection
-                 * for forever*/
-                /*Step 9 */
-                if(client_data->a == 0 && client_data->b ==0){
+                printf("Msg recieved : %s\n", data_buffer);
+                char *request_line = NULL;
+                char del[2] = "\n", 
+                     *method = NULL,
+                     *URL = NULL;
+                request_line = strtok(data_buffer, del);
+                del[0] = ' ';
+                method = strtok(request_line, del);
+                URL = strtok(NULL, del);
+                printf("Method = %s\n", method);
+                printf("URL = %s\n", URL);
+                char *response = NULL;
+                unsigned int response_length = 0 ;
 
+                if(strncmp(method, "GET", strlen("GET")) == 0){
+                    response = process_GET_request(URL, &response_length);
+                }
+                else if(strncmp(method, "POST", strlen("POST")) == 0){
+                    response = process_POST_request(URL, &response_length);
+                }
+                else{
+                    printf("Unsupported URL method request\n");
                     close(comm_socket_fd);
-                    printf("Server closes connection with client : %s:%u\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
-                    /*Goto state machine State 1*/
-                    break;/*Get out of inner while loop, server is done with this client, time to check for new connection request by executing selct()*/
+                    break;
                 }
 
-                result_struct_t result;
-                result.c = client_data->a + client_data->b;
+                /*END : Implement the HTTP request processing functionality*/
 
                 /* Server replying back to client now*/
-                sent_recv_bytes = sendto(comm_socket_fd, (char *)&result, sizeof(result_struct_t), 0,
-                        (struct sockaddr *)&client_addr, sizeof(struct sockaddr));
-
-                printf("Server sent %d bytes in reply to client\n", sent_recv_bytes);
+                if(response){
+                    printf("response to be sent to client = %s\n", response);
+                    sent_recv_bytes = sendto(comm_socket_fd, response, response_length, 0,
+                            (struct sockaddr *)&client_addr, sizeof(struct sockaddr));
+                    free(response);
+                    printf("Server sent %d bytes in reply to client\n", sent_recv_bytes);
+                    //close(comm_socket_fd);
+                    //break;
+                }
                 /*Goto state machine State 3*/
             }
         }

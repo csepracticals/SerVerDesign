@@ -224,10 +224,7 @@ setup_tcp_server_communication(){
                             (struct sockaddr *)&client_addr, sizeof(struct sockaddr));
 
                     printf("Server sent %d bytes in reply to client\n", sent_recv_bytes);
-
-                    break;/*Why loop unnecessary when we have already found the clinet FD of interest*/
                 }
-
             }
         }
 
