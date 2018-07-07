@@ -142,6 +142,7 @@ process_GET_request(char *URL, unsigned int *response_len){
     strcat(header, "\n");
     strcat(header, "Content-Type: text/html; charset=UTF-8\n");
     strcat(header, "\n");
+
     strcat(header, response);
     content_len_str = strlen(header); 
     *response_len = content_len_str;
@@ -276,24 +277,29 @@ setup_tcp_server_communication(){
                         inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
                 if(sent_recv_bytes == 0){
-                /*If server recvs empty msg from client, server may close the connection and wait
+                /* If server recvs empty msg from client, server may close the connection and wait
                  * for fresh new connection from client - same or different*/
                 close(comm_socket_fd);
                 break; /*goto step 5*/
 
                 }
 
-                /*BEGIN : Implement the HTTP request processing functionality*/
+
+
+
+                /****************************************************************/
+                 /*BEGIN : Implement the HTTP request processing functionality */
+                /****************************************************************/
                 
                 printf("Msg recieved : %s\n", data_buffer);
                 char *request_line = NULL;
                 char del[2] = "\n", 
                      *method = NULL,
                      *URL = NULL;
-                request_line = strtok(data_buffer, del);
+                request_line = strtok(data_buffer, del); /*Extract out the request line*/
                 del[0] = ' ';
-                method = strtok(request_line, del);
-                URL = strtok(NULL, del);
+                method = strtok(request_line, del);     /*Tokenize the request line on the basis of space, and extract the first word*/
+                URL = strtok(NULL, del);                /*Extract the URL*/
                 printf("Method = %s\n", method);
                 printf("URL = %s\n", URL);
                 char *response = NULL;
@@ -311,11 +317,16 @@ setup_tcp_server_communication(){
                     break;
                 }
 
-                /*END : Implement the HTTP request processing functionality*/
+                /****************************************************************/
+                 /*END : Implement the HTTP request processing functionality */
+                /****************************************************************/
+
+
+
 
                 /* Server replying back to client now*/
                 if(response){
-                    printf("response to be sent to client = %s\n", response);
+                    printf("response to be sent to client = \n%s", response);
                     sent_recv_bytes = sendto(comm_socket_fd, response, response_length, 0,
                             (struct sockaddr *)&client_addr, sizeof(struct sockaddr));
                     free(response);
