@@ -56,7 +56,7 @@ main(int argc, char *argv[])
     /* Purpose of bind() system call is that application() dictate the underlying 
      * operating system the criteria of recieving the data. Here, bind() system call
      * is telling the OS that if sender process sends the data destined to socket "/tmp/DemoSocket", 
-     * then such data needs to be delivered to this process me (the server process)*/
+     * then such data needs to be delivered to this server process (the server process)*/
     ret = bind(connection_socket, (const struct sockaddr *) &name,
             sizeof(struct sockaddr_un));
 
