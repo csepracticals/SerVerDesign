@@ -10,9 +10,16 @@
 
 #define MAX_CLIENT_SUPPORTED    32
 
+/*An array of File descriptors which the server process
+ * is maintaining in order to talk with the connected clients.
+ * Master skt FD is also a member of this array*/
 int monitored_fd_set[MAX_CLIENT_SUPPORTED];
+
+/*Each connected client's intermediate result is 
+ * maintained in this client array.*/
 int client_result[MAX_CLIENT_SUPPORTED] = {0};
 
+/*Remove all the FDs, if any, from the the array*/
 static void
 intitiaze_monitor_fd_set(){
 
@@ -21,6 +28,7 @@ intitiaze_monitor_fd_set(){
         monitored_fd_set[i] = -1;
 }
 
+/*Add a new FD to the monitored_fd_set array*/
 static void
 add_to_monitored_fd_set(int skt_fd){
 
@@ -34,6 +42,7 @@ add_to_monitored_fd_set(int skt_fd){
     }
 }
 
+/*Remove the FD from monitored_fd_set array*/
 static void
 remove_from_monitored_fd_set(int skt_fd){
 
@@ -48,8 +57,10 @@ remove_from_monitored_fd_set(int skt_fd){
     }
 }
 
+/* Clone all the FDs in monitored_fd_set array into 
+ * fd_set Data structure*/
 static void
-re_init_readfds(fd_set *fd_set_ptr){
+refresh_fd_set(fd_set *fd_set_ptr){
 
     FD_ZERO(fd_set_ptr);
     int i = 0;
@@ -59,6 +70,9 @@ re_init_readfds(fd_set *fd_set_ptr){
         }
     }
 }
+
+/*Get the numerical max value among all FDs which server
+ * is monitoring*/
 
 static int
 get_max_fd(){
@@ -97,6 +111,7 @@ main(int argc, char *argv[])
     fd_set readfds;
     int comm_socket_fd, i;
     intitiaze_monitor_fd_set();
+    add_to_monitored_fd_set(0);
 
     /*In case the program exited inadvertently on the last run,
      *remove the socket.
@@ -158,7 +173,7 @@ main(int argc, char *argv[])
      * page failed to load ??*/
     for (;;) {
 
-        re_init_readfds(&readfds); /*Copy the entire monitored FDs to readfds*/
+        refresh_fd_set(&readfds); /*Copy the entire monitored FDs to readfds*/
         /* Wait for incoming connection. */
         printf("Waiting on select() sys call\n");
 
@@ -183,6 +198,11 @@ main(int argc, char *argv[])
             printf("Connection accepted from client\n");
 
             add_to_monitored_fd_set(data_socket);
+        }
+        else if(FD_ISSET(0, &readfds)){
+            memset(buffer, 0, BUFFER_SIZE);
+            ret = read(0, buffer, BUFFER_SIZE);
+            printf("Input read from console : %s\n", buffer);
         }
         else /* Data srrives on some other client FD*/
         {
@@ -225,13 +245,13 @@ main(int argc, char *argv[])
                         close(comm_socket_fd);
                         client_result[i] = 0; 
                         remove_from_monitored_fd_set(comm_socket_fd);
-                        continue;
+                        continue; /*go to select() and block*/
                     }
                     client_result[i] += data;
                 }
             }
         }
-    }
+    } /*go to select() and block*/
 
     /*close the master socket*/
     close(connection_socket);
