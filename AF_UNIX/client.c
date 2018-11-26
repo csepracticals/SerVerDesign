@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 #define SOCKET_NAME "/tmp/DemoSocket"
-#define BUFFER_SIZE 12
+#define BUFFER_SIZE 128
 
 int
 main(int argc, char *argv[])
