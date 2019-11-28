@@ -6,6 +6,8 @@
 #include <memory.h>
 #include <errno.h>
 #include "common.h"
+#include <arpa/inet.h>
+
 
 #define MAX_CLIENT_SUPPORTED    32
 #define SERVER_PORT     2000 /*Server process is running on this port no. Client has to send data to this port no*/
@@ -173,7 +175,7 @@ setup_tcp_server_communication(){
             }
 
             add_to_monitored_fd_set(comm_socket_fd); 
-            printf("Connection accepted from client : %s:%u\n", inet_ntoa(client_addr.sin_addr),                                    ntohs(client_addr.sin_port));
+            printf("Connection accepted from client : %s:%u\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
         }
         else /* Data srrives on some other client FD*/
         {
