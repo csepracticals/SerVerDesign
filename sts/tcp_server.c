@@ -5,6 +5,8 @@
 #include <netdb.h>
 #include <memory.h>
 #include <errno.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include "common.h"
 
 /*Server process is running on this port no. Client has to send data to this port no*/
