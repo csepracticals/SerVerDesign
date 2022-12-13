@@ -26,6 +26,7 @@ main(int argc, char *argv[])
     int result;
     int data;
     char buffer[BUFFER_SIZE];
+    int clientExited = 0; // for avoiding the server crash in case client closes connection
 
     /*In case the program exited inadvertently on the last run,
      *remove the socket.
@@ -112,11 +113,25 @@ main(int argc, char *argv[])
                 perror("read");
                 exit(EXIT_FAILURE);
             }
+            
+               else if (ret == 0) // check if client exited
+            {
+                printf("Client exited\n");
+                clientExited = 1;
+                break;
+            }
 
             /* Add received summand. */
             memcpy(&data, buffer, sizeof(int));
             if(data == 0) break;
             result += data;
+        }
+        
+        // skip writing in case client exited
+        if (clientExited)
+        {
+            clientExited = 0;
+            continue;
         }
 
         /* Send result. */
